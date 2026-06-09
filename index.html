@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ArchIdentify - Digging Smarter</title>
+    <style>
+        :root {
+            --primary: #5C4033; /* Deep soil brown */
+            --secondary: #C19A6B; /* Sand */
+            --accent: #2E8B57; /* GIS Green */
+            --dark: #1A1A1A;
+            --light: #F4F1EA;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light);
+            color: var(--dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            width: 100%;
+            text-align: center;
+            padding: 20px 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            letter-spacing: 1px;
+        }
+
+        header p {
+            margin: 5px 0 0 0;
+            font-size: 0.9rem;
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .config-box {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid var(--secondary);
+            font-size: 0.9rem;
+        }
+
+        .config-box input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .camera-box {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 4 / 3;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            border: 3px solid var(--primary);
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Scanner line animation for that "AI" feel */
+        .scanner-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(46, 139, 87, 0.8);
+            box-shadow: 0 0 10px rgba(46, 139, 87, 1);
+            animation: scan 2s linear infinite;
+            display: none;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+
+        canvas { display: none; }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-full {
+            grid-column: span 2;
+        }
+
+        button {
+            padding: 16px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-secondary { background-color: var(--secondary); color: var(--dark); }
+        .btn-gis { background-color: var(--accent); color: white; display: none; }
+
+        button:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+
+        .dashboard {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid var(--secondary);
+            min-height: 150px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .dashboard h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--secondary); padding-bottom: 5px; }
+        
+        .loading {
+            color: var(--primary);
+            font-weight: bold;
+            text-align: center;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .tag {
+            display: inline-block;
+            background: var(--secondary);
+            color: var(--dark);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🎭 ArchIdentify</h1>
+        <p>The Archaeologist's Assistant in a Box</p>
+    </header>
+
+    <div class="container">
+        <div class="config-box">
+            <label for="apiKey"><strong>System Access Key:</strong></label>
+            <input type="password" id="apiKey" value="AQ.Ab8RN6JOUmkErFPGVi19QJ0K2FNsiRi6QCIQNtAmoEUwl_HHtQ" />
+        </div>
+
+        <div class="camera-box">
+            <video id="webcam" autoplay playsinline></video>
+            <div class="scanner-line" id="scanner"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-secondary" id="switchCamBtn">🔄 Switch Camera</button>
+            <button class="btn-primary" id="captureBtn">🔍 Analyze Artifact</button>
+            <button class="btn-gis btn-full" id="gisBtn">🌐 Sync to GIS Database</button>
+        </div>
+
+        <canvas id="captureCanvas"></canvas>
+
+        <div class="dashboard" id="dashboard">
+            <h3>ArchIdentify Telemetry</h3>
+            <div id="analysis-result">System ready. Place artifact in chamber and initialize analysis.</div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('captureCanvas');
+        const captureBtn = document.getElementById('captureBtn');
+        const switchCamBtn = document.getElementById('switchCamBtn');
+        const gisBtn = document.getElementById('gisBtn');
+        const resultDiv = document.getElementById('analysis-result');
+        const apiKeyInput = document.getElementById('apiKey');
+        const scanner = document.getElementById('scanner');
+
+        let currentStream = null;
+        let useFacingMode = "environment"; // Defaults to rear camera
+
+        // 1. Initialize Camera
+        async function initCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            const constraints = {
+                video: { facingMode: useFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+                audio: false
+            };
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+            } catch (err) {
+                resultDiv.innerText = "Error: Cannot access camera. Ensure permissions are granted.";
+            }
+        }
+
+        switchCamBtn.addEventListener('click', () => {
+            useFacingMode = useFacingMode === "environment" ? "user" : "environment";
+            initCamera();
+        });
+
+        // 2. Capture Frame
+        function getFrameBase64() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+        }
+
+        // 3. Process via Gemini API
+        async function analyzeArtifact() {
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) return alert("API Key missing.");
+
+            // UI Updates
+            scanner.style.display = "block";
+            gisBtn.style.display = "none";
+            resultDiv.innerHTML = '<div class="loading">Cross-referencing historical datasets... Assessing material composition...</div>';
+            
+            const base64Image = getFrameBase64();
+
+            // Script-accurate System Prompt
+            const systemInstruction = `
+You are ArchIdentify, an expert AI archaeological assistant inside a protective field box.
+Analyze this artifact and format your response exactly like this using HTML tags for bolding:
+
+<b>Artifact Type & Origin:</b> [Identify the object and its cultural origin].
+<b>Material Composition:</b> [Identify metals, pottery, etc. Note if it will corrode with air exposure].
+<b>Inscriptions & Patterns:</b> [Check for rare dialects, text, or unusual patterns].
+<b>Historical Cross-Reference:</b> [Match features against known historical datasets].
+<b>Preservation Protocol:</b> [Recommend if it needs a climate-controlled sleeve or immediate stabilization].
+<b>Specialist Recommendation:</b> [Suggest an expert or lab if anomalies are found].
+`;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: systemInstruction },
+                        { inlineData: { mimeType: "image/jpeg", data: base64Image } }
+                    ]
+                }]
+            };
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                scanner.style.display = "none";
+                
+                if (data.candidates && data.candidates[0].content.parts[0].text) {
+                    let formattedText = data.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
+                    resultDiv.innerHTML = `
+                        <div style="margin-bottom: 10px;">
+                            <span class="tag">AI Verified</span>
+                            <span class="tag">Environment: Assessed</span>
+                        </div>
+                        ${formattedText}
+                    `;
+                    // Show GIS sync button after successful scan
+                    gisBtn.style.display = "block";
+                } else {
+                    resultDiv.innerText = "Error: AI parsing failed. Please adjust lighting and try again.";
+                }
+            } catch (error) {
+                scanner.style.display = "none";
+                resultDiv.innerText = "Network Error: Could not connect to ArchIdentify Core.";
+            }
+        }
+
+        // Mock GIS Sync
+        gisBtn.addEventListener('click', () => {
+            const originalText = resultDiv.innerHTML;
+            resultDiv.innerHTML = '<div class="loading">Syncing to Global GIS Database... Tagging metadata...</div>';
+            setTimeout(() => {
+                resultDiv.innerHTML = `<div style="color: green; font-weight: bold; margin-bottom: 10px;">✓ Data uploaded successfully. Manual entry reduced by 60%. Global access granted.</div>` + originalText;
+                gisBtn.style.display = "none";
+            }, 2000);
+        });
+
+        captureBtn.addEventListener('click', analyzeArtifact);
+        window.addEventListener('DOMContentLoaded', initCamera);
+    </script>
+</body>
+</html>
