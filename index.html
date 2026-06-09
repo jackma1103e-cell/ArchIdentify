@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ArchIdentify - Digging Smarter</title>
+    <title>ArchIdentify Ultimate - Field Scanner</title>
     <style>
         :root {
             --primary: #5C4033; /* Deep soil brown */
-            --secondary: #C19A6B; /* Sand */
+            --secondary: #C19A6B; /* Sand/Earth */
             --accent: #2E8B57; /* GIS Green */
             --dark: #1A1A1A;
             --light: #F4F1EA;
@@ -90,7 +90,6 @@
             object-fit: cover;
         }
 
-        /* Scanner line animation for that "AI" feel */
         .scanner-line {
             position: absolute;
             top: 0;
@@ -186,7 +185,7 @@
     <div class="container">
         <div class="config-box">
             <label for="apiKey"><strong>System Access Key:</strong></label>
-            <input type="password" id="apiKey" value="" />
+            <input type="password" id="apiKey" placeholder="Paste your new Google AI Studio API key here..." value="" />
         </div>
 
         <div class="camera-box">
@@ -204,7 +203,7 @@
 
         <div class="dashboard" id="dashboard">
             <h3>ArchIdentify Telemetry</h3>
-            <div id="analysis-result">System ready. Place artifact in chamber and initialize analysis.</div>
+            <div id="analysis-result">System ready. Place artifact inside the protective chamber and initialize analysis.</div>
         </div>
     </div>
 
@@ -219,9 +218,9 @@
         const scanner = document.getElementById('scanner');
 
         let currentStream = null;
-        let useFacingMode = "environment"; // Defaults to rear camera
+        let useFacingMode = "environment"; // Tries to launch back camera on devices
 
-        // 1. Initialize Camera
+        // Initialize Camera
         async function initCamera() {
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
@@ -234,7 +233,7 @@
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
             } catch (err) {
-                resultDiv.innerText = "Error: Cannot access camera. Ensure permissions are granted.";
+                resultDiv.innerText = "Error: Cannot access device camera. Verify application permissions.";
             }
         }
 
@@ -243,7 +242,7 @@
             initCamera();
         });
 
-        // 2. Capture Frame
+        // Capture Frame from active stream
         function getFrameBase64() {
             const context = canvas.getContext('2d');
             canvas.width = video.videoWidth;
@@ -252,29 +251,30 @@
             return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         }
 
-        // 3. Process via Gemini API
+        // Universal Artifact Analyzer Framework
         async function analyzeArtifact() {
             const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) return alert("API Key missing.");
+            if (!apiKey) return alert("Please input your active API access key before scanning.");
 
-            // UI Updates
+            // UI Feedback
             scanner.style.display = "block";
             gisBtn.style.display = "none";
-            resultDiv.innerHTML = '<div class="loading">Cross-referencing historical datasets... Assessing material composition...</div>';
+            resultDiv.innerHTML = '<div class="loading">Cross-referencing historical & scientific datasets... Evaluating sample profile...</div>';
             
             const base64Image = getFrameBase64();
 
-            // Script-accurate System Prompt
+            // Broadened system context instruction to accept maps, biological items, texts, and tools seamlessly.
             const systemInstruction = `
-You are ArchIdentify, an expert AI archaeological assistant inside a protective field box.
-Analyze this artifact and format your response exactly like this using HTML tags for bolding:
+You are ArchIdentify, an advanced multi-disciplinary AI archaeological and field research assistant. 
+Analyze the item in the image. It could be cultural/man-made (pottery, tools, written text, ancient maps) or natural/organic (seashells, fossils, minerals).
+Determine its profile and output your findings exactly in this format using HTML tags for bolding:
 
-<b>Artifact Type & Origin:</b> [Identify the object and its cultural origin].
-<b>Material Composition:</b> [Identify metals, pottery, etc. Note if it will corrode with air exposure].
-<b>Inscriptions & Patterns:</b> [Check for rare dialects, text, or unusual patterns].
-<b>Historical Cross-Reference:</b> [Match features against known historical datasets].
-<b>Preservation Protocol:</b> [Recommend if it needs a climate-controlled sleeve or immediate stabilization].
-<b>Specialist Recommendation:</b> [Suggest an expert or lab if anomalies are found].
+<b>Artifact Classification:</b> [Identify the specific item. Specify if it is cultural/historical or natural/biological, alongside estimated age/origin/species].
+<b>Material & Surface Composition:</b> [Describe the material: pottery, organic calcium carbonate, ancient parchment, ink types, etc. Note vulnerabilities like air/moisture sensitivity].
+<b>Inscriptions, Markings or Structural Patterns:</b> [Analyze any distinct features: written scripts, cartographic details/topography for maps, or natural growth lines/ridges for biological items].
+<b>Historical/Scientific Cross-Reference:</b> [Match the observed attributes against global historical records or taxonomic datasets].
+<b>Preservation Protocol:</b> [Provide precise protective guidelines, such as environmental controls or a specialized climate-controlled sleeve].
+<b>Specialist Recommendation:</b> [Identify what specialized research laboratory or expert field should handle this specific discovery next].
 `;
 
             const payload = {
@@ -302,28 +302,27 @@ Analyze this artifact and format your response exactly like this using HTML tags
                     let formattedText = data.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
                     resultDiv.innerHTML = `
                         <div style="margin-bottom: 10px;">
-                            <span class="tag">AI Verified</span>
-                            <span class="tag">Environment: Assessed</span>
+                            <span class="tag">AI Telemetry Lock</span>
+                            <span class="tag">Composition: Scanned</span>
                         </div>
                         ${formattedText}
                     `;
-                    // Show GIS sync button after successful scan
-                    gisBtn.style.display = "block";
+                    gisBtn.style.display = "block"; // Open database upload option
                 } else {
-                    resultDiv.innerText = "Error: AI parsing failed. Please adjust lighting and try again.";
+                    resultDiv.innerText = "Processing Error: Vision matrix failed to register distinct artifact markers. Readjust positioning.";
                 }
             } catch (error) {
                 scanner.style.display = "none";
-                resultDiv.innerText = "Network Error: Could not connect to ArchIdentify Core.";
+                resultDiv.innerText = "Network Error: Link broken to primary computational cloud system.";
             }
         }
 
-        // Mock GIS Sync
+        // Simulate FLL Script Feature: GIS Global Database Syncing
         gisBtn.addEventListener('click', () => {
             const originalText = resultDiv.innerHTML;
-            resultDiv.innerHTML = '<div class="loading">Syncing to Global GIS Database... Tagging metadata...</div>';
+            resultDiv.innerHTML = '<div class="loading">Parsing structural telemetry to central database... Formatting GIS maps...</div>';
             setTimeout(() => {
-                resultDiv.innerHTML = `<div style="color: green; font-weight: bold; margin-bottom: 10px;">✓ Data uploaded successfully. Manual entry reduced by 60%. Global access granted.</div>` + originalText;
+                resultDiv.innerHTML = `<div style="color: green; font-weight: bold; margin-bottom: 10px;">✓ GIS Data Pack Synced. Global dataset distribution verified. Manual input load reduced by 60%.</div>` + originalText;
                 gisBtn.style.display = "none";
             }, 2000);
         });
