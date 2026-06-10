@@ -28,39 +28,40 @@
             background-color: var(--primary);
             color: white;
             width: 100%;
-            text-align: center;
-            padding: 15px 0;
+            padding: 20px 0;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
-            gap: 10px;
         }
 
         .logo-container {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 15px;
+            max-width: 600px;
+            width: 100%;
+            padding: 0 20px;
+            box-sizing: border-box;
         }
 
         .team-logo {
-            width: 55px;
-            height: 55px;
+            width: 75px;
+            height: 75px;
             border-radius: 50%;
             object-fit: cover;
-            border: 2px solid var(--secondary);
+            border: 3px solid var(--secondary);
             background-color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
         }
 
-        header h1 {
+        .header-text h1 {
             margin: 0;
             font-size: 1.8rem;
             letter-spacing: 1px;
         }
 
-        header p {
-            margin: 0;
+        .header-text p {
+            margin: 2px 0 0 0;
             font-size: 0.9rem;
             color: var(--secondary);
             font-weight: bold;
@@ -230,8 +231,8 @@
 
     <header>
         <div class="logo-container">
-            <img src="logo.png" alt="DigiBlitz Logo" class="team-logo" onerror="this.style.display='none'">
-            <div>
+            <img src="logo.png" alt="DigiBlitz Logo" class="team-logo" id="logoImage">
+            <div class="header-text">
                 <h1>ArchIdentify</h1>
                 <p>The Archaeologist's Assistant in a Box</p>
             </div>
@@ -298,10 +299,17 @@
         const apiKeyInput = document.getElementById('apiKey');
         const scanner = document.getElementById('scanner');
         const gisTableBody = document.getElementById('gisTableBody');
+        const logoImage = document.getElementById('logoImage');
 
         let currentStream = null;
         let useFacingMode = "environment"; 
-        let lastAnalysisData = null; // Stashes last scan telemetry internally
+        let lastAnalysisData = null; 
+
+        // Graceful error text if logo.png isn't found yet during local testing
+        logoImage.onerror = function() {
+            console.log("logo.png not detected yet. Make sure it's placed in the same folder.");
+            this.style.alt = "DigiBlitz";
+        };
 
         // Initialize Camera
         async function initCamera() {
@@ -333,7 +341,7 @@
             return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         }
 
-        // Run Multi-Classification Matrix via Gemini
+        // Run Multi-Classification Matrix via Gemini (Shorter, detail-dense version)
         async function analyzeArtifact() {
             const apiKey = apiKeyInput.value.trim();
             if (!apiKey) return alert("Please input your AI Studio API key.");
@@ -345,16 +353,13 @@
             const base64Image = getFrameBase64();
 
             const systemInstruction = `
-You are ArchIdentify, an advanced multi-disciplinary AI archaeological and field research assistant. 
-Analyze the item in the image. It could be cultural/man-made (pottery, tools, written text, ancient maps) or natural/organic (seashells, fossils, minerals).
-Determine its profile and output your findings exactly in this format using HTML tags for bolding:
+You are ArchIdentify, an advanced AI field research assistant. 
+Analyze the item in the image (cultural artifact, map, or organic specimen like a seashell).
+Provide a concise but technically detailed report. Output your findings exactly in this 3-part format using HTML tags for bolding:
 
-<b>Artifact Classification:</b> [Keep this short. Name the item and its direct culture/origin/species in 1 sentence].
-<b>Material & Surface Composition:</b> [Describe the materials. Note vulnerabilities like air/moisture sensitivity].
-<b>Inscriptions, Markings or Structural Patterns:</b> [Analyze distinct features: text, map topography, or seashell growth ridges].
-<b>Historical/Scientific Cross-Reference:</b> [Match observed attributes against global tracking records].
-<b>Preservation Protocol:</b> [Provide precise protective rules, like an immediate climate-controlled sleeve].
-<b>Specialist Recommendation:</b> [Identify what lab or field specialist should handle this next].
+<b>Classification & Origin:</b> [Identify the exact item, cultural group/species, and estimated age in 1-2 punchy sentences].
+<b>Physical Properties & Features:</b> [Detail material matrix, air/moisture vulnerabilities, and surface attributes like scripts, map topography, or shell growth ridges].
+<b>Preservation & Next Step:</b> [Specify instant field care rules, like climate-controlled sleeve needs, and name the specialist research lab required next].
 `;
 
             const payload = {
@@ -389,7 +394,6 @@ Determine its profile and output your findings exactly in this format using HTML
                         ${formattedText}
                     `;
                     
-                    // Stash data for the real GIS Sync trigger
                     lastAnalysisData = rawText; 
                     gisBtn.style.display = "block";
                 } else {
@@ -401,7 +405,7 @@ Determine its profile and output your findings exactly in this format using HTML
             }
         }
 
-        // Helper Engine: Get Real Geolocation Coordinates or Fallback to Field Sector Grid
+        // Get Real Geolocation Coordinates or Fallback to Field Sector Grid
         function getFieldCoordinates() {
             return new Promise((resolve) => {
                 if (navigator.geolocation) {
@@ -410,7 +414,6 @@ Determine its profile and output your findings exactly in this format using HTML
                             resolve({ lat: pos.coords.latitude.toFixed(5), lng: pos.coords.longitude.toFixed(5), type: "Device GPS" });
                         },
                         () => {
-                            // If GPS is disabled or indoors, generate standardized FLL Dig Site coordinates
                             const mockLat = (36.1482 + (Math.random() - 0.5) * 0.005).toFixed(5);
                             const mockLng = (-115.1512 + (Math.random() - 0.5) * 0.005).toFixed(5);
                             resolve({ lat: mockLat, lng: mockLng, type: "Site Sector Grid-Alpha" });
@@ -423,17 +426,16 @@ Determine its profile and output your findings exactly in this format using HTML
             });
         }
 
-        // Helper Engine: Scrape text cleanly to find the classification title
+        // Scrape text to find the new classification title for the database table
         function parseClassification(rawText) {
             try {
-                const match = rawText.match(/Artifact Classification:<\/b>\s*([^<\n]+)/i) || rawText.match(/Artifact Classification:\s*([^<\n]+)/i);
+                const match = rawText.match(/Classification & Origin:<\/b>\s*([^<\n\.]+)/i) || rawText.match(/Classification[^:]*:\s*([^<\n\.]+)/i);
                 if (match && match[1]) return match[1].trim();
                 
-                // Backup scraper if format varies slightly
                 const lines = rawText.split('\n');
                 for (let line of lines) {
                     if (line.toLowerCase().includes('classification')) {
-                        return line.replace(/<\/?[^>]+(>|$)/g, "").replace(/Artifact Classification:/i, "").trim();
+                        return line.replace(/<\/?[^>]+(>|$)/g, "").replace(/Classification & Origin:/i, "").split('.')[0].trim();
                     }
                 }
                 return "Unclassified Specimen";
@@ -442,7 +444,7 @@ Determine its profile and output your findings exactly in this format using HTML
             }
         }
 
-        // ACTUAL WORKING ACTION: Database Synchronization Logic
+        // Database Synchronization Logic
         async function syncToGisDatabase() {
             if (!lastAnalysisData) return;
 
@@ -453,7 +455,6 @@ Determine its profile and output your findings exactly in this format using HTML
             const classification = parseClassification(lastAnalysisData);
             const timestamp = new Date().toLocaleString();
 
-            // Structure data entry payload
             const newRecord = {
                 timestamp: timestamp,
                 classification: classification,
@@ -462,18 +463,15 @@ Determine its profile and output your findings exactly in this format using HTML
                 source: coords.type
             };
 
-            // Pull current database array from local storage, push new block, and resave
             let currentDb = JSON.parse(localStorage.getItem('archIdentifyDb')) || [];
-            currentDb.unshift(newRecord); // Adds new record directly to top of list
+            currentDb.unshift(newRecord); 
             localStorage.setItem('archIdentifyDb', JSON.stringify(currentDb));
 
-            // Refresh UI View layout table
             renderGisTable();
 
-            // Restore dashboard panel view cleanly
             let formattedText = lastAnalysisData.replace(/\n/g, '<br>');
             resultDiv.innerHTML = `
-                <div style="color: #2E8B57; font-weight: bold; margin-bottom: 10px;">✓ TELEMETRY SYNCED SUCCESSFULLY TO LOCAL DATABASE PLATFORM! (Manual Entry Speed Optimized by 60%)</div>
+                <div style="color: #2E8B57; font-weight: bold; margin-bottom: 10px;">• TELEMETRY SYNCED SUCCESSFULLY TO LOCAL DATABASE PLATFORM! (Manual Entry Speed Optimized by 60%)</div>
                 ${formattedText}
             `;
         }
@@ -501,7 +499,7 @@ Determine its profile and output your findings exactly in this format using HTML
             });
         }
 
-        // DATA EXPORT FUNCTION: Converts Local Database arrays to standard CSV instantly
+        // Converts Local Database array to CSV file download
         downloadGisBtn.addEventListener('click', () => {
             let currentDb = JSON.parse(localStorage.getItem('archIdentifyDb')) || [];
             if (currentDb.length === 0) return alert("Database ledger empty. Scan and sync items first!");
@@ -509,7 +507,6 @@ Determine its profile and output your findings exactly in this format using HTML
             let csvContent = "data:text/csv;charset=utf-8,Timestamp,Classification,Latitude,Longitude,LocationSource\n";
             
             currentDb.forEach(r => {
-                // Escape commas inside classifications safely
                 let cleanClass = r.classification.replace(/"/g, '""');
                 csvContent += `"${r.timestamp}","${cleanClass}",${r.latitude},${r.longitude},"${r.source}"\n`;
             });
@@ -535,7 +532,7 @@ Determine its profile and output your findings exactly in this format using HTML
         captureBtn.addEventListener('click', analyzeArtifact);
         window.addEventListener('DOMContentLoaded', () => {
             initCamera();
-            renderGisTable(); // Instantly pull existing tracking records when site boots up
+            renderGisTable(); 
         });
     </script>
 </body>
