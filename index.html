@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ArchIdentify Ultimate - Field Scanner</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ArchIdentify">
+    <link rel="apple-touch-icon" href="logo.png">
+
     <style>
         :root {
             --primary: #5C4033; /* Deep soil brown */
@@ -22,6 +28,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            padding-top: env(safe-area-inset-top);
         }
 
         header {
@@ -45,8 +52,8 @@
         }
 
         .team-logo {
-            width: 125px;
-            height: 125px;
+            width: 75px; 
+            height: 75px; 
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid var(--secondary);
@@ -152,12 +159,18 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
         .btn-primary { background-color: var(--primary); color: white; }
         .btn-secondary { background-color: var(--secondary); color: var(--dark); }
         .btn-gis { background-color: var(--accent); color: white; display: none; }
         .btn-danger { background-color: #a33; color: white; padding: 8px; font-size: 0.85rem; margin-top: 10px;}
 
-        button:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+        button:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
 
         .dashboard {
             background: white;
@@ -231,10 +244,10 @@
 
     <header>
         <div class="logo-container">
-            <img src="logo.png" alt="DigiBlitz Logo" class="team-logo" id="logoImage">
+            <img src="logo.png" alt="DigiBlitz" class="team-logo" id="logoImage">
             <div class="header-text">
                 <h1>ArchIdentify</h1>
-                <p>The Archaeologists' Mobile Assistant</p>
+                <p>The Archaeologist's Assistant in a Box</p>
             </div>
         </div>
     </header>
@@ -242,7 +255,7 @@
     <div class="container">
         <div class="config-box">
             <label for="apiKey"><strong>System Access Key:</strong></label>
-            <input type="password" id="apiKey" placeholder="Paste your API key here..." value="" />
+            <input type="password" id="apiKey" placeholder="Paste your secret Google AI Studio API key here..." value="" />
         </div>
 
         <div class="camera-box">
@@ -304,11 +317,12 @@
         let currentStream = null;
         let useFacingMode = "environment"; 
         let lastAnalysisData = null; 
+        let isAnalyzing = false; // Bug Fix: Anti-spam lock
 
-        // Graceful error text if logo.png isn't found yet during local testing
+        // Graceful error text if logo.png isn't found
         logoImage.onerror = function() {
-            console.log("logo.png not detected yet. Make sure it's placed in the same folder.");
-            this.style.alt = "DigiBlitz";
+            console.log("logo.png not detected yet.");
+            this.style.display = "none";
         };
 
         // Initialize Camera
@@ -324,16 +338,21 @@
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
             } catch (err) {
-                resultDiv.innerText = "Error: Camera hardware link offline. Verify permissions.";
+                resultDiv.innerHTML = "<strong style='color:red;'>Camera Error:</strong> Cannot access device camera. Please check browser permissions.";
             }
         }
 
         switchCamBtn.addEventListener('click', () => {
+            if(isAnalyzing) return;
             useFacingMode = useFacingMode === "environment" ? "user" : "environment";
             initCamera();
         });
 
+        // Bug Fix: Check if video is actually ready before drawing
         function getFrameBase64() {
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                return null;
+            }
             const context = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -341,25 +360,43 @@
             return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         }
 
-        // Run Multi-Classification Matrix via Gemini (Shorter, detail-dense version)
+        // Run Analysis Matrix
         async function analyzeArtifact() {
-            const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) return alert("Please input your AI Studio API key.");
+            if (isAnalyzing) return; // Prevent double clicks
+            
+            // Bug Fix: Network check
+            if (!navigator.onLine) {
+                alert("You are offline! Please connect to Wi-Fi to use the ArchIdentify AI Core.");
+                return;
+            }
 
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert("Please input your secret AI Studio API key.");
+                return;
+            }
+
+            const base64Image = getFrameBase64();
+            if (!base64Image) {
+                alert("Camera is still warming up. Please wait 1 second and try again.");
+                return;
+            }
+
+            // Lock UI
+            isAnalyzing = true;
+            captureBtn.disabled = true;
             scanner.style.display = "block";
             gisBtn.style.display = "none";
             resultDiv.innerHTML = '<div class="loading">Parsing telemetry profile... Cross-referencing archaeological catalog...</div>';
-            
-            const base64Image = getFrameBase64();
 
             const systemInstruction = `
 You are ArchIdentify, an advanced AI field research assistant. 
 Analyze the item in the image (cultural artifact, map, or organic specimen like a seashell).
-Provide a concise but technically detailed report. Output your findings exactly in this 3-part format using HTML tags for bolding:
+Provide a concise but technically detailed report. Output your findings exactly in this 3-part format:
 
-<b>Classification & Origin:</b> [Identify the exact item, cultural group/species, and estimated age in 1-2 punchy sentences].
-<b>Physical Properties & Features:</b> [Detail material matrix, air/moisture vulnerabilities, and surface attributes like scripts, map topography, or shell growth ridges].
-<b>Preservation & Next Step:</b> [Specify instant field care rules, like climate-controlled sleeve needs, and name the specialist research lab required next].
+Classification & Origin: [Identify the exact item, cultural group/species, and estimated age in 1-2 punchy sentences].
+Physical Properties & Features: [Detail material matrix, air/moisture vulnerabilities, and surface attributes].
+Preservation & Next Step: [Specify instant field care rules, like climate-controlled sleeve needs, and name the specialist research lab required next].
 `;
 
             const payload = {
@@ -381,11 +418,19 @@ Provide a concise but technically detailed report. Output your findings exactly 
                 });
 
                 const data = await response.json();
-                scanner.style.display = "none";
+                
+                // Bug Fix: Catch bad API keys (400/403 errors)
+                if (!response.ok) {
+                    throw new Error(data.error?.message || "Invalid API Key or Server Error");
+                }
                 
                 if (data.candidates && data.candidates[0].content.parts[0].text) {
                     let rawText = data.candidates[0].content.parts[0].text;
-                    let formattedText = rawText.replace(/\n/g, '<br>');
+                    
+                    // Format response cleanly (Markdown to HTML safe)
+                    let formattedText = rawText
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Convert markdown bold to HTML bold
+                        .replace(/\n/g, '<br>');
                     
                     resultDiv.innerHTML = `
                         <div style="margin-bottom: 10px;">
@@ -400,24 +445,22 @@ Provide a concise but technically detailed report. Output your findings exactly 
                     resultDiv.innerText = "Error: Processing core could not isolate item boundary markers.";
                 }
             } catch (error) {
+                resultDiv.innerHTML = `<strong style='color:#a33;'>System Error:</strong> ${error.message}`;
+            } finally {
+                // Unlock UI
+                isAnalyzing = false;
+                captureBtn.disabled = false;
                 scanner.style.display = "none";
-                resultDiv.innerText = "Network Error: System disconnected from Gemini Cloud Core.";
             }
         }
 
-        // Get Real Geolocation Coordinates or Fallback to Field Sector Grid
+        // GPS Fallback Engine
         function getFieldCoordinates() {
             return new Promise((resolve) => {
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                            resolve({ lat: pos.coords.latitude.toFixed(5), lng: pos.coords.longitude.toFixed(5), type: "Device GPS" });
-                        },
-                        () => {
-                            const mockLat = (36.1482 + (Math.random() - 0.5) * 0.005).toFixed(5);
-                            const mockLng = (-115.1512 + (Math.random() - 0.5) * 0.005).toFixed(5);
-                            resolve({ lat: mockLat, lng: mockLng, type: "Site Sector Grid-Alpha" });
-                        },
+                        (pos) => resolve({ lat: pos.coords.latitude.toFixed(5), lng: pos.coords.longitude.toFixed(5), type: "Device GPS" }),
+                        () => resolve({ lat: (36.1482 + (Math.random() - 0.5) * 0.005).toFixed(5), lng: (-115.1512 + (Math.random() - 0.5) * 0.005).toFixed(5), type: "Site Sector Grid-Alpha" }),
                         { timeout: 3000 }
                     );
                 } else {
@@ -426,42 +469,40 @@ Provide a concise but technically detailed report. Output your findings exactly 
             });
         }
 
-        // Scrape text to find the new classification title for the database table
+        // Bug Fix: Markdown-proof Classification Scraper
         function parseClassification(rawText) {
             try {
-                const match = rawText.match(/Classification & Origin:<\/b>\s*([^<\n\.]+)/i) || rawText.match(/Classification[^:]*:\s*([^<\n\.]+)/i);
+                // Strip all asterisks and HTML tags first to guarantee a clean string
+                let cleanText = rawText.replace(/\*/g, "").replace(/<\/?[^>]+(>|$)/g, "");
+                
+                const match = cleanText.match(/Classification & Origin:\s*([^\n\.]+)/i) || cleanText.match(/Classification[^:]*:\s*([^\n\.]+)/i);
                 if (match && match[1]) return match[1].trim();
                 
-                const lines = rawText.split('\n');
+                const lines = cleanText.split('\n');
                 for (let line of lines) {
                     if (line.toLowerCase().includes('classification')) {
-                        return line.replace(/<\/?[^>]+(>|$)/g, "").replace(/Classification & Origin:/i, "").split('.')[0].trim();
+                        return line.replace(/Classification & Origin:/i, "").split('.')[0].trim();
                     }
                 }
-                return "Unclassified Specimen";
+                return "Identified Specimen";
             } catch (e) {
                 return "Identified Artifact";
             }
         }
 
-        // Database Synchronization Logic
+        // DB Sync
         async function syncToGisDatabase() {
             if (!lastAnalysisData) return;
 
             gisBtn.style.display = "none";
-            resultDiv.innerHTML = '<div class="loading">Pinging telemetry arrays... Querying remote GIS mapping channels...</div>';
+            const originalHTML = resultDiv.innerHTML;
+            resultDiv.innerHTML = '<div class="loading">Pinging telemetry arrays... Syncing to secure server...</div>';
 
             const coords = await getFieldCoordinates();
             const classification = parseClassification(lastAnalysisData);
             const timestamp = new Date().toLocaleString();
 
-            const newRecord = {
-                timestamp: timestamp,
-                classification: classification,
-                latitude: coords.lat,
-                longitude: coords.lng,
-                source: coords.type
-            };
+            const newRecord = { timestamp, classification, latitude: coords.lat, longitude: coords.lng, source: coords.type };
 
             let currentDb = JSON.parse(localStorage.getItem('archIdentifyDb')) || [];
             currentDb.unshift(newRecord); 
@@ -469,14 +510,12 @@ Provide a concise but technically detailed report. Output your findings exactly 
 
             renderGisTable();
 
-            let formattedText = lastAnalysisData.replace(/\n/g, '<br>');
             resultDiv.innerHTML = `
-                <div style="color: #2E8B57; font-weight: bold; margin-bottom: 10px;">• TELEMETRY SYNCED SUCCESSFULLY TO LOCAL DATABASE PLATFORM! (Manual Entry Speed Optimized by 60%)</div>
-                ${formattedText}
-            `;
+                <div style="color: #2E8B57; font-weight: bold; margin-bottom: 10px;">• TELEMETRY SYNCED SUCCESSFULLY TO LOCAL DATABASE PLATFORM!</div>
+            ` + originalHTML;
         }
 
-        // Load and update the database view table
+        // Render Table
         function renderGisTable() {
             let currentDb = JSON.parse(localStorage.getItem('archIdentifyDb')) || [];
             gisTableBody.innerHTML = '';
@@ -499,13 +538,12 @@ Provide a concise but technically detailed report. Output your findings exactly 
             });
         }
 
-        // Converts Local Database array to CSV file download
+        // CSV Downloader
         downloadGisBtn.addEventListener('click', () => {
             let currentDb = JSON.parse(localStorage.getItem('archIdentifyDb')) || [];
             if (currentDb.length === 0) return alert("Database ledger empty. Scan and sync items first!");
 
             let csvContent = "data:text/csv;charset=utf-8,Timestamp,Classification,Latitude,Longitude,LocationSource\n";
-            
             currentDb.forEach(r => {
                 let cleanClass = r.classification.replace(/"/g, '""');
                 csvContent += `"${r.timestamp}","${cleanClass}",${r.latitude},${r.longitude},"${r.source}"\n`;
@@ -520,7 +558,6 @@ Provide a concise but technically detailed report. Output your findings exactly 
             document.body.removeChild(link);
         });
 
-        // Clear local storage data
         clearGisBtn.addEventListener('click', () => {
             if (confirm("Are you sure you want to completely clear out the local GIS relational database?")) {
                 localStorage.removeItem('archIdentifyDb');
@@ -528,8 +565,8 @@ Provide a concise but technically detailed report. Output your findings exactly 
             }
         });
 
-        gisBtn.addEventListener('click', syncToGisDatabase);
         captureBtn.addEventListener('click', analyzeArtifact);
+        gisBtn.addEventListener('click', syncToGisDatabase);
         window.addEventListener('DOMContentLoaded', () => {
             initCamera();
             renderGisTable(); 
