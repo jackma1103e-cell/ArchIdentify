@@ -10,6 +10,15 @@
     <meta name="apple-mobile-web-app-title" content="ArchIdentify">
     <link rel="apple-touch-icon" href="logo.png">
 
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-SPY0HDZ8XT"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-SPY0HDZ8XT');
+    </script>
+
     <style>
         :root {
             --primary: #5C4033; /* Deep soil brown */
@@ -317,11 +326,11 @@
         let currentStream = null;
         let useFacingMode = "environment"; 
         let lastAnalysisData = null; 
-        let isAnalyzing = false; // Bug Fix: Anti-spam lock
+        let isAnalyzing = false;
 
         // Graceful error text if logo.png isn't found
         logoImage.onerror = function() {
-            console.log("logo.png not detected yet.");
+            console.log("logo.png not detected yet. Ensure your team logo is uploaded and named exactly logo.png");
             this.style.display = "none";
         };
 
@@ -348,7 +357,6 @@
             initCamera();
         });
 
-        // Bug Fix: Check if video is actually ready before drawing
         function getFrameBase64() {
             if (video.videoWidth === 0 || video.videoHeight === 0) {
                 return null;
@@ -362,9 +370,8 @@
 
         // Run Analysis Matrix
         async function analyzeArtifact() {
-            if (isAnalyzing) return; // Prevent double clicks
+            if (isAnalyzing) return; 
             
-            // Bug Fix: Network check
             if (!navigator.onLine) {
                 alert("You are offline! Please connect to Wi-Fi to use the ArchIdentify AI Core.");
                 return;
@@ -382,7 +389,6 @@
                 return;
             }
 
-            // Lock UI
             isAnalyzing = true;
             captureBtn.disabled = true;
             scanner.style.display = "block";
@@ -419,7 +425,6 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
 
                 const data = await response.json();
                 
-                // Bug Fix: Catch bad API keys (400/403 errors)
                 if (!response.ok) {
                     throw new Error(data.error?.message || "Invalid API Key or Server Error");
                 }
@@ -427,9 +432,8 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
                 if (data.candidates && data.candidates[0].content.parts[0].text) {
                     let rawText = data.candidates[0].content.parts[0].text;
                     
-                    // Format response cleanly (Markdown to HTML safe)
                     let formattedText = rawText
-                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Convert markdown bold to HTML bold
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
                         .replace(/\n/g, '<br>');
                     
                     resultDiv.innerHTML = `
@@ -447,7 +451,6 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             } catch (error) {
                 resultDiv.innerHTML = `<strong style='color:#a33;'>System Error:</strong> ${error.message}`;
             } finally {
-                // Unlock UI
                 isAnalyzing = false;
                 captureBtn.disabled = false;
                 scanner.style.display = "none";
@@ -469,10 +472,9 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             });
         }
 
-        // Bug Fix: Markdown-proof Classification Scraper
+        // Markdown-proof Classification Scraper
         function parseClassification(rawText) {
             try {
-                // Strip all asterisks and HTML tags first to guarantee a clean string
                 let cleanText = rawText.replace(/\*/g, "").replace(/<\/?[^>]+(>|$)/g, "");
                 
                 const match = cleanText.match(/Classification & Origin:\s*([^\n\.]+)/i) || cleanText.match(/Classification[^:]*:\s*([^\n\.]+)/i);
