@@ -5,15 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ArchIdentify Ultimate - Field Scanner</title>
 
+    <!-- FREE FOREVER NATIVE APP TRANSFORMATION CODE -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ArchIdentify">
     <link rel="apple-touch-icon" href="logo.png">
 
+    <!-- GOOGLE ANALYTICS LIVE TELEMETRY -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-SPY0HDZ8XT"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      window.gtag = gtag; // Force global attachment for iOS
       gtag('js', new Date());
 
       gtag('config', 'G-SPY0HDZ8XT');
@@ -262,11 +265,13 @@
     </header>
 
     <div class="container">
+        <!-- API Setup -->
         <div class="config-box">
             <label for="apiKey"><strong>System Access Key:</strong></label>
             <input type="password" id="apiKey" placeholder="Paste your secret Google AI Studio API key here..." value="" />
         </div>
 
+        <!-- Camera Viewport -->
         <div class="camera-box">
             <video id="webcam" autoplay playsinline></video>
             <div class="scanner-line" id="scanner"></div>
@@ -280,11 +285,13 @@
 
         <canvas id="captureCanvas"></canvas>
 
+        <!-- Live Telemetry -->
         <div class="dashboard">
             <h3>ArchIdentify Telemetry</h3>
             <div id="analysis-result">System ready. Place item inside the chamber and click Analyze.</div>
         </div>
 
+        <!-- GIS Database -->
         <div class="gis-ledger-box">
             <h3>🌐 Global GIS Relational Database</h3>
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
@@ -303,13 +310,29 @@
                         </tr>
                     </thead>
                     <tbody id="gisTableBody">
-                        </tbody>
+                        <!-- Data rows inject here -->
+                    </tbody>
                 </table>
             </div>
         </div>
     </div>
 
     <script>
+        // --- BULLETPROOF GOOGLE ANALYTICS FUNCTION ---
+        function sendTelemetry(eventName, params) {
+            try {
+                window.dataLayer = window.dataLayer || [];
+                window.dataLayer.push({
+                    'event': eventName,
+                    ...params
+                });
+                console.log("Telemetry Successfully Fired:", eventName);
+            } catch (error) {
+                console.error("Telemetry Blocked by Browser:", error);
+            }
+        }
+        // ---------------------------------------------
+
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('captureCanvas');
         const captureBtn = document.getElementById('captureBtn');
@@ -332,7 +355,6 @@
             this.style.display = "none";
         };
 
-        // Initialize Camera
         async function initCamera() {
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
@@ -346,11 +368,7 @@
                 video.srcObject = currentStream;
             } catch (err) {
                 resultDiv.innerHTML = "<strong style='color:red;'>Camera Error:</strong> Cannot access device camera.";
-                
-                // CUSTOM TRACKING: Log Camera Error
-                if (typeof gtag === 'function') {
-                    gtag('event', 'system_error', { 'error_type': 'camera_access_denied' });
-                }
+                sendTelemetry('system_error', { 'error_type': 'camera_access_denied' });
             }
         }
 
@@ -358,11 +376,7 @@
             if(isAnalyzing) return;
             useFacingMode = useFacingMode === "environment" ? "user" : "environment";
             initCamera();
-            
-            // CUSTOM TRACKING: Log Camera Switches
-            if (typeof gtag === 'function') {
-                gtag('event', 'camera_switch', { 'facing_mode': useFacingMode });
-            }
+            sendTelemetry('camera_switch', { 'facing_mode': useFacingMode });
         });
 
         function getFrameBase64() {
@@ -374,7 +388,6 @@
             return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         }
 
-        // Run Analysis Matrix
         async function analyzeArtifact() {
             if (isAnalyzing) return; 
             
@@ -447,23 +460,16 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
                     lastAnalysisData = rawText; 
                     gisBtn.style.display = "block";
 
-                    // CUSTOM TRACKING: Log the exact artifact classification to Google Analytics!
-                    if (typeof gtag === 'function') {
-                        let trackingClass = parseClassification(rawText);
-                        gtag('event', 'artifact_scanned', {
-                            'artifact_type': trackingClass
-                        });
-                    }
+                    // Send the scanned item directly to Google Analytics Dashboard
+                    let trackingClass = parseClassification(rawText);
+                    sendTelemetry('artifact_scanned', { 'artifact_type': trackingClass });
+                    
                 } else {
                     resultDiv.innerText = "Error: Processing core could not isolate item boundary markers.";
                 }
             } catch (error) {
                 resultDiv.innerHTML = `<strong style='color:#a33;'>System Error:</strong> ${error.message}`;
-                
-                // CUSTOM TRACKING: Log API Errors
-                if (typeof gtag === 'function') {
-                    gtag('event', 'system_error', { 'error_type': 'api_failure', 'error_detail': error.message });
-                }
+                sendTelemetry('system_error', { 'error_type': 'api_failure', 'error_detail': error.message });
             } finally {
                 isAnalyzing = false;
                 captureBtn.disabled = false;
@@ -525,10 +531,7 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
                 <div style="color: #2E8B57; font-weight: bold; margin-bottom: 10px;">• TELEMETRY SYNCED SUCCESSFULLY TO LOCAL DATABASE PLATFORM!</div>
             ` + originalHTML;
 
-            // CUSTOM TRACKING: Log a successful database sync
-            if (typeof gtag === 'function') {
-                gtag('event', 'gis_sync_completed', { 'location_method': coords.type });
-            }
+            sendTelemetry('gis_sync_completed', { 'location_method': coords.type });
         }
 
         function renderGisTable() {
@@ -569,10 +572,7 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             link.click();
             document.body.removeChild(link);
 
-            // CUSTOM TRACKING: Log CSV Exports
-            if (typeof gtag === 'function') {
-                gtag('event', 'csv_data_exported', { 'rows_exported': currentDb.length });
-            }
+            sendTelemetry('csv_data_exported', { 'rows_exported': currentDb.length });
         });
 
         clearGisBtn.addEventListener('click', () => {
