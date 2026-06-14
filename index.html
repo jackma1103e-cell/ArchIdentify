@@ -21,9 +21,9 @@
 
     <style>
         :root {
-            --primary: #5C4033; /* Deep soil brown */
-            --secondary: #C19A6B; /* Sand/Earth */
-            --accent: #2E8B57; /* GIS Green */
+            --primary: #5C4033;
+            --secondary: #C19A6B;
+            --accent: #2E8B57;
             --dark: #1A1A1A;
             --light: #F4F1EA;
         }
@@ -328,9 +328,7 @@
         let lastAnalysisData = null; 
         let isAnalyzing = false;
 
-        // Graceful error text if logo.png isn't found
         logoImage.onerror = function() {
-            console.log("logo.png not detected yet. Ensure your team logo is uploaded and named exactly logo.png");
             this.style.display = "none";
         };
 
@@ -347,7 +345,12 @@
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
             } catch (err) {
-                resultDiv.innerHTML = "<strong style='color:red;'>Camera Error:</strong> Cannot access device camera. Please check browser permissions.";
+                resultDiv.innerHTML = "<strong style='color:red;'>Camera Error:</strong> Cannot access device camera.";
+                
+                // CUSTOM TRACKING: Log Camera Error
+                if (typeof gtag === 'function') {
+                    gtag('event', 'system_error', { 'error_type': 'camera_access_denied' });
+                }
             }
         }
 
@@ -355,12 +358,15 @@
             if(isAnalyzing) return;
             useFacingMode = useFacingMode === "environment" ? "user" : "environment";
             initCamera();
+            
+            // CUSTOM TRACKING: Log Camera Switches
+            if (typeof gtag === 'function') {
+                gtag('event', 'camera_switch', { 'facing_mode': useFacingMode });
+            }
         });
 
         function getFrameBase64() {
-            if (video.videoWidth === 0 || video.videoHeight === 0) {
-                return null;
-            }
+            if (video.videoWidth === 0 || video.videoHeight === 0) return null;
             const context = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -431,25 +437,33 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
                 
                 if (data.candidates && data.candidates[0].content.parts[0].text) {
                     let rawText = data.candidates[0].content.parts[0].text;
-                    
-                    let formattedText = rawText
-                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
-                        .replace(/\n/g, '<br>');
+                    let formattedText = rawText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
                     
                     resultDiv.innerHTML = `
-                        <div style="margin-bottom: 10px;">
-                            <span class="tag">Telemetry Confirmed</span>
-                        </div>
+                        <div style="margin-bottom: 10px;"><span class="tag">Telemetry Confirmed</span></div>
                         ${formattedText}
                     `;
                     
                     lastAnalysisData = rawText; 
                     gisBtn.style.display = "block";
+
+                    // CUSTOM TRACKING: Log the exact artifact classification to Google Analytics!
+                    if (typeof gtag === 'function') {
+                        let trackingClass = parseClassification(rawText);
+                        gtag('event', 'artifact_scanned', {
+                            'artifact_type': trackingClass
+                        });
+                    }
                 } else {
                     resultDiv.innerText = "Error: Processing core could not isolate item boundary markers.";
                 }
             } catch (error) {
                 resultDiv.innerHTML = `<strong style='color:#a33;'>System Error:</strong> ${error.message}`;
+                
+                // CUSTOM TRACKING: Log API Errors
+                if (typeof gtag === 'function') {
+                    gtag('event', 'system_error', { 'error_type': 'api_failure', 'error_detail': error.message });
+                }
             } finally {
                 isAnalyzing = false;
                 captureBtn.disabled = false;
@@ -457,7 +471,6 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             }
         }
 
-        // GPS Fallback Engine
         function getFieldCoordinates() {
             return new Promise((resolve) => {
                 if (navigator.geolocation) {
@@ -472,14 +485,11 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             });
         }
 
-        // Markdown-proof Classification Scraper
         function parseClassification(rawText) {
             try {
                 let cleanText = rawText.replace(/\*/g, "").replace(/<\/?[^>]+(>|$)/g, "");
-                
                 const match = cleanText.match(/Classification & Origin:\s*([^\n\.]+)/i) || cleanText.match(/Classification[^:]*:\s*([^\n\.]+)/i);
                 if (match && match[1]) return match[1].trim();
-                
                 const lines = cleanText.split('\n');
                 for (let line of lines) {
                     if (line.toLowerCase().includes('classification')) {
@@ -492,7 +502,6 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             }
         }
 
-        // DB Sync
         async function syncToGisDatabase() {
             if (!lastAnalysisData) return;
 
@@ -515,18 +524,20 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             resultDiv.innerHTML = `
                 <div style="color: #2E8B57; font-weight: bold; margin-bottom: 10px;">• TELEMETRY SYNCED SUCCESSFULLY TO LOCAL DATABASE PLATFORM!</div>
             ` + originalHTML;
+
+            // CUSTOM TRACKING: Log a successful database sync
+            if (typeof gtag === 'function') {
+                gtag('event', 'gis_sync_completed', { 'location_method': coords.type });
+            }
         }
 
-        // Render Table
         function renderGisTable() {
             let currentDb = JSON.parse(localStorage.getItem('archIdentifyDb')) || [];
             gisTableBody.innerHTML = '';
-
             if (currentDb.length === 0) {
                 gisTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">No database tracking items synced yet.</td></tr>';
                 return;
             }
-
             currentDb.forEach(record => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -540,7 +551,6 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             });
         }
 
-        // CSV Downloader
         downloadGisBtn.addEventListener('click', () => {
             let currentDb = JSON.parse(localStorage.getItem('archIdentifyDb')) || [];
             if (currentDb.length === 0) return alert("Database ledger empty. Scan and sync items first!");
@@ -558,6 +568,11 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+
+            // CUSTOM TRACKING: Log CSV Exports
+            if (typeof gtag === 'function') {
+                gtag('event', 'csv_data_exported', { 'rows_exported': currentDb.length });
+            }
         });
 
         clearGisBtn.addEventListener('click', () => {
