@@ -11,16 +11,32 @@
     <meta name="apple-mobile-web-app-title" content="ArchIdentify">
     <link rel="apple-touch-icon" href="logo.png">
 
-    <!-- GOOGLE ANALYTICS LIVE TELEMETRY -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-SPY0HDZ8XT"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      window.gtag = gtag; // Force global attachment for iOS
-      gtag('js', new Date());
-
-      gtag('config', 'G-SPY0HDZ8XT');
-    </script>
+<!-- REPLACEMENT TRACKING SCRIPT -->
+<script>
+    // Universal tracker that works on ANY device/browser
+    async function sendUniversalEvent(eventName, eventParams) {
+        const measurementId = "G-SPY0HDZ8XT";
+        const apiSecret = "7ptY3hpsRp-Cn9Mew8FkEw"; // Get this from GA4 Admin > Data Streams > Measurement Protocol
+        
+        const url = `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`;
+        
+        try {
+            await fetch(url, {
+                method: 'POST',
+                body: JSON.stringify({
+                    client_id: 'browser_client_123',
+                    events: [{
+                        name: eventName,
+                        params: eventParams
+                    }]
+                })
+            });
+            console.log("Telemetry Fired to GA4 API:", eventName);
+        } catch (e) {
+            console.warn("Telemetry blocked, but app functionality remains intact.");
+        }
+    }
+</script>
 
     <style>
         :root {
@@ -318,19 +334,26 @@
     </div>
 
     <script>
-        // --- BULLETPROOF GOOGLE ANALYTICS FUNCTION ---
-        function sendTelemetry(eventName, params) {
-            try {
-                window.dataLayer = window.dataLayer || [];
-                window.dataLayer.push({
-                    'event': eventName,
-                    ...params
-                });
-                console.log("Telemetry Successfully Fired:", eventName);
-            } catch (error) {
-                console.error("Telemetry Blocked by Browser:", error);
-            }
-        }
+       // --- REPLACE THIS ENTIRE BLOCK ---
+async function sendUniversalEvent(eventName, eventParams) {
+    const measurementId = "G-SPY0HDZ8XT";
+    // Get this secret from: GA4 Admin > Data Streams > Your Web Stream > Measurement Protocol API secrets
+    const apiSecret = "7ptY3hpsRp-Cn9Mew8FkEw"; 
+    
+    const url = `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`;
+    
+    try {
+        await fetch(url, {
+            method: 'POST',
+            body: JSON.stringify({
+                client_id: 'app_user_01',
+                events: [{ name: eventName, params: eventParams }]
+            })
+        });
+    } catch (e) {
+        console.warn("Telemetry offline.");
+    }
+}
         // ---------------------------------------------
 
         const video = document.getElementById('webcam');
@@ -368,7 +391,7 @@
                 video.srcObject = currentStream;
             } catch (err) {
                 resultDiv.innerHTML = "<strong style='color:red;'>Camera Error:</strong> Cannot access device camera.";
-                sendTelemetry('system_error', { 'error_type': 'camera_access_denied' });
+                sendUniversalEvent('system_error', { 'error_type': 'camera_access_denied' });
             }
         }
 
@@ -376,7 +399,7 @@
             if(isAnalyzing) return;
             useFacingMode = useFacingMode === "environment" ? "user" : "environment";
             initCamera();
-            sendTelemetry('camera_switch', { 'facing_mode': useFacingMode });
+            sendUniversalEvent('camera_switch', { 'facing_mode': useFacingMode });
         });
 
         function getFrameBase64() {
@@ -462,14 +485,14 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
 
                     // Send the scanned item directly to Google Analytics Dashboard
                     let trackingClass = parseClassification(rawText);
-                    sendTelemetry('artifact_scanned', { 'artifact_type': trackingClass });
+                    sendUniversalEvent('artifact_scanned', { 'artifact_type': trackingClass });
                     
                 } else {
                     resultDiv.innerText = "Error: Processing core could not isolate item boundary markers.";
                 }
             } catch (error) {
                 resultDiv.innerHTML = `<strong style='color:#a33;'>System Error:</strong> ${error.message}`;
-                sendTelemetry('system_error', { 'error_type': 'api_failure', 'error_detail': error.message });
+                sendUniversalEvent('system_error', { 'error_type': 'api_failure', 'error_detail': error.message });
             } finally {
                 isAnalyzing = false;
                 captureBtn.disabled = false;
@@ -531,7 +554,7 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
                 <div style="color: #2E8B57; font-weight: bold; margin-bottom: 10px;">• TELEMETRY SYNCED SUCCESSFULLY TO LOCAL DATABASE PLATFORM!</div>
             ` + originalHTML;
 
-            sendTelemetry('gis_sync_completed', { 'location_method': coords.type });
+            sendUniversalEvent('gis_sync_completed', { 'location_method': coords.type });
         }
 
         function renderGisTable() {
@@ -572,7 +595,7 @@ Preservation & Next Step: [Specify instant field care rules, like climate-contro
             link.click();
             document.body.removeChild(link);
 
-            sendTelemetry('csv_data_exported', { 'rows_exported': currentDb.length });
+            sendUniversalEvent('csv_data_exported', { 'rows_exported': currentDb.length });
         });
 
         clearGisBtn.addEventListener('click', () => {
